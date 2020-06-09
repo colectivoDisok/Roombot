@@ -1,0 +1,377 @@
+d#include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+#include <Adafruit_BMP085.h>    //Librería del BMP180
+#include <Wire.h>
+#include "Adafruit_SI1145.h"
+
+
+// Definimos parámetros
+#define WIFISID ""
+#define WIFIPASS ""
+
+// Definimos los parámetros para el IFTTT
+#define HOSTIFTTT "maker.ifttt.com"
+String EVENTO="enviar_tweet";
+String IFTTTKEY="";
+
+ESP8266WiFiMulti WiFiMulti;
+Adafruit_SI1145 uv = Adafruit_SI1145();
+Adafruit_BMP085 bmp;        // BMP180
+// Utilizamos la conexión SSL del ESP8266
+WiFiClient client;
+
+// Variable que permite ejecutar una sola vez la función
+bool ejecutado = false;
+float temp;
+int luzVisible;
+int sensorPin = A0;
+
+String frases1[]= {"%C2%A1Hola%21",
+                    "%C2%A1Hola%20Twitter%21",
+                    "Hola%20a%20tod%40s%20mis%20seguidores.",
+                    "%C2%A1Buenas%20a%20tod%40s%21",
+                    "Saludos.",
+                    "Saludos%2C%20gente.",
+                    "%C2%A1Saludos%20a%20tod%40s%21",
+                    "%C2%A1Hola%20mundo%21",
+                    "%C2%A1Hey%21",
+                    "%C2%A1Hola%20amiguis%21",
+                    "Hola%20%C2%BFqu%C3%A9%20tal%20est%C3%A1is%3F",
+                    "%C2%BFC%C3%B3mo%20va%20todo%2C%20gente%3F",
+                    "%C2%BFQu%C3%A9%20tal%20va%20todo%2C%20gente%3F",
+                    "%C2%BFC%C3%B3mo%20va%20todo%3F",
+                    "Hola%20a%20tod%40s%20%C2%BFc%C3%B3mo%20vais%3F",
+                    "%C2%A1Hola%20a%20tod%40s%21",
+                    "%C2%A1Hola%21%20%C2%BFQu%C3%A9%20tal%20hab%C3%A9is%20empezado%20el%20d%C3%ADa%3F",
+                    "Hey%2C%20%C2%BFc%C3%B3mo%20est%C3%A1n%20mis%20followers%3F",
+                    "%C2%A1Hola%2C%20caracola%21%20%C2%A1Pajarito%20sin%20cola%21",
+                    "A%20quien%20madruga%2C%20nadie%20le%20prepara%20el%20desayuno%2C%20por%20eso%20yo%20no%20madrugo.",
+                    "Hola%20%C2%BFqu%C3%A9%20os%20cont%C3%A1is%3F",
+                    "Hola%2C%20cara%20de%20bola.",
+                    "Buenos%20d%C3%ADas%20a%20tod%40s.",
+                    "%C2%A1Buen%C3%ADsimos%20d%C3%ADas%21",
+                    "%C2%A1Hey%2C%20colegas%21",
+                    "%C2%BFQu%C3%A9%20tal%20est%C3%A1is%2C%20guap%40s%3F",
+                    "%C2%A1Hola%2C%20holita%21",
+                    "%C2%A1Saludos%20a%20los%20mejores%20followers%20del%20mundo%21",
+                    "%C2%BFC%C3%B3mo%20est%C3%A1is%2C%20amig%40s%3F",
+                    "%C2%A1Holaaaaaa%21",
+                    "%C2%A1Heeey%21",
+                    "%C2%BFList%40s%20para%20un%20nuevo%20d%C3%ADa%3F",
+                    "%C2%A1Este%20tweet%2C%20c%C3%B3mo%20mola%2C%20se%20merece%20una%20ola%21%20%C2%A1Ueeeee%21%20",
+                    "%C2%BFQu%C3%A9%20pasa%2C%20tronc%40s%3F",
+                    "%C2%A1Hola%21%20Aqu%C3%AD%20estamos%20otra%20vez%2C%20comunic%C3%A1ndonos%20en%20el%20ciberespacio.",
+                    "%C2%A1Hey%21%20Os%20comento%3A",
+                    "%C2%A1Buenos%20d%C3%ADas%21",
+                    "%C2%A1Buen%20d%C3%ADa%20a%20tod%40s%21",
+                    "Buenas.",
+                    "%C2%A1Aqu%C3%AD%20estamos%20otra%20vez%21",
+                    "%C2%A1Aqu%C3%AD%20estoy%21",
+                    "%C2%A1Aqu%C3%AD%20andamos%21",
+                    "Aqu%C3%AD%20estoy%20de%20vuelta.",
+                    "Aqu%C3%AD%20de%20nuevo.",
+                    "Hola%20a%20tod%40s.%20Os%20cuento%3A",
+                    "Aqu%C3%AD%20estoy%2C%20conectando%20con%20vosotros.",
+                    "%C2%BFC%C3%B3mo%20est%C3%A1n%20ustedes%3F",
+                    "%C2%BFQu%C3%A9%20hay%20de%20nuevo%3F%20",
+                    "%C2%A1Hola%2C%20maj%40s%21",
+                    "%C2%A1Buenas%2C%20maj%C3%ADsim%40s%21",
+                    "%C2%A1Hola%2C%20amig%40s%20m%C3%AD%40s%21",
+                    "%C2%BFC%C3%B3mo%20est%C3%A1n%20los%20m%C3%A1s%20guap%40s%20del%20mundo%20mundial%3F%20%C2%A1Yo%20bien%21%20",
+                    "%C2%A1Aloha%21%20",
+                    "%C2%A1Hola%2C%20hola%21",
+                    "%C2%A1Hola%2C%20amig%40s%21",
+                    "%C2%BFC%C3%B3mo%20est%C3%A1is%20hoy%3F%20Yo%20estoy%20genial.%20",
+                    "%C2%A1Aqu%C3%AD%20estoy%2C%20twitteando%21",
+                    "%C2%A1Aqu%C3%AD%20ando%2C%20twitteando%21",
+                    "Buenos%20d%C3%ADas%20a%20tod%40s."};
+
+String frases2_1[] = {"hay%20mucha%20luz.",
+                      "entra%20mucha%20luz.",
+                      "la%20luz%20es%20id%C3%B3nea.",
+                      "estoy%20bien%20iluminada.",
+                      "estoy%20muy%20iluminada.",
+                      "la%20iluminaci%C3%B3n%20es%20estupenda.",
+                      "la%20luz%20es%20perfecta.",
+                      "la%20luz%20que%20tengo%20es%20estupenda.",
+                      "la%20luz%20que%20tengo%20es%20perfecta.",
+                      "%C2%A1la%20luz%20que%20tengo%20hoy%20es%20tan%20agradable%21",
+                      "la%20luz%20de%20hoy%20es%20genial.",
+                      "%C2%A1qu%C3%A9%20luz%20tengo%20hoy%21",
+                      "menuda%20luz%20hay%20hoy.",
+                      "menuda%20luz%20hay.",
+                      "menuda%20luz%20tengo.",
+                      "menuda%20luz%20tengo%20hoy.",
+                      "%C2%A1menuda%20luz%20hay%20aqu%C3%AD%20dentro%21",
+                      "la%20iluminaci%C3%B3n%20es%20ideal.",
+                      "la%20iluminaci%C3%B3n%20es%20perfecta.",
+                      "hay%20much%C3%ADsima%20luz.",
+                      "hay%20suficiente%20luz.",
+                      "la%20luz%20es%20suficiente.",
+                      "%C2%A1hay%20much%C3%ADsima%20luz%21",
+                      "%C2%A1menuda%20iluminaci%C3%B3n%2C%20espl%C3%A9ndida%21",
+                      "estoy%20llena%20de%20luz.",
+                      "estoy%20inundada%20por%20la%20luz.",
+                      "la%20luz%20me%20inunda.",
+                      "hay%20muy%20buena%20iluminaci%C3%B3n.",
+                      "%C2%A1aqu%C3%AD%20dentro%20hay%20mucha%20luz%21",
+                      "qu%C3%A9%20claridad%20hay%20aqu%C3%AD%20dentro.",
+                      "hay%20mucha%2C%20mucha%20luz.",
+                      "aqu%C3%AD%20hay%20mucha%20luz.",
+                      "hay%20mucha%20luz%20entre%20mis%20paredes.",
+                      "%C2%A1la%20luz%20que%20hay%20en%20m%C3%AD%20es%20muy%20acogedora%21",
+                      "%C2%A1qu%C3%A9%20luz%20hay%21",
+                      "menuda%20luz%20tengo%20hoy.",
+                      "la%20luz%20es%20perfecta%20hoy."
+                      };
+
+String frases2_2[] = {"hay%20poca%20luz.",
+                      "entra%20poca%20luz.",
+                      "hoy%20la%20luz%20no%20es%20id%C3%B3nea.",
+                      "estoy%20mal%20iluminada.",
+                      "estoy%20poco%20iluminada.",
+                      "%C2%BFla%20iluminaci%C3%B3n%3F%20Ni%20mal%20ni%20bien.",
+                      "%C2%BFLa%20luz%3F%20Sin%20m%C3%A1s%2C%20ni%20mucha%20ni%20poca.",
+                      "la%20iluminaci%C3%B3n%20de%20hoy%2C%20bueno%2C%20mejorable.",
+                      "la%20luz%20no%20es%20muy%20buena.",
+                      "la%20luz%20que%20tengo%20hoy%20es%20pobre.",
+                      "la%20luz%20que%20tengo%20es%20aceptable.",
+                      "la%20luz%20de%20hoy%20es%20normalita.",
+                      "la%20luz%20de%20hoy%20no%20es%20nada%20del%20otro%20mundo.",
+                      "%C2%A1menuda%20luz%20hay%20aqu%C3%AD%20dentro%21",
+                      "la%20iluminaci%C3%B3n%20de%20hoy%20es%20mejorable.",
+                      "la%20iluminaci%C3%B3n%20de%20hoy%20es%20mediocre.",
+                      "no%20hay%20much%C3%ADsima%20luz.",
+                      "no%20hay%20mucha%20luz%20ahora%20mismo.",
+                      "no%20hay%20tanta%20luz.",
+                      "podr%C3%ADa%20haber%20m%C3%A1s%20luz%2C%20la%20verdad.",
+                      "agradecer%C3%ADa%20un%20poco%20m%C3%A1s%20de%20claridad%20entre%20mis%20paredes.",
+                      "podr%C3%ADa%20haber%20un%20poco%20m%C3%A1s%20de%20luz%20y%20no%20har%C3%ADa%20da%C3%B1o%20a%20nadie.",
+                      "no%20hay%20suficiente%20luz%20hoy.",
+                      "un%20poquito%20m%C3%A1s%20de%20luz%20no%20me%20vendr%C3%ADa%20mal.",
+                      "un%20poquito%20m%C3%A1s%20de%20luminosidad%20me%20vendr%C3%ADa%20bien.",
+                      "hay%20iluminaci%C3%B3n%20aceptable%2C%20tampoco%20abunda.",
+                      "un%20poco%20m%C3%A1s%20de%20luz%20no%20me%20vendr%C3%ADa%20mal.",
+                      "un%20poco%20menos%20de%20luz%20y%20no%20veo%20nada.",
+                      "hay%20una%20luz%20tenue",
+                      "aqu%C3%AD%20hay%20poca%20luz.",
+                      "hay%20poca%20luz%20entre%20mis%20paredes."
+                    };
+
+String frases2_3[] = {"no%20hay%20nada%20de%20luz%2C%20%C2%A1qu%C3%A9%20oscuro%21",
+                      "estoy%20casi%20a%20oscuras.",
+                      "estoy%20en%20penumbra.",
+                      "estoy%20pr%C3%A1cticamente%20en%20penumbra.",
+                      "estoy%20pr%C3%A1cticamente%20a%20oscuras.",
+                      "estoy%20completamente%20a%20oscuras.",
+                      "qu%C3%A9%20poca%20luz%20hay%20aqu%C3%AD%20dentro.",
+                      "qu%C3%A9%20poca%20luz.",
+                      "casi%20no%20hay%20luz.",
+                      "est%C3%A1%20muy%20oscuro.",
+                      "qu%C3%A9%20oscuro%20est%C3%A1.",
+                      "est%C3%A1%20bastante%20oscuro.",
+                      "est%C3%A1%20bastante%20oscuro%20aqu%C3%AD.",
+                      "est%C3%A1%20s%C3%BAper%20oscuro.",
+                      "hay%20poqu%C3%ADsima%20luz.",
+                      "no%20hay%20nada%20de%20luz.",
+                      "qu%C3%A9%20poco%20iluminada%20estoy%20hoy.",
+                      "qu%C3%A9%20mal%20iluminada%20estoy.",
+                      "casi%20no%20hay%20nada%20de%20luz.",
+                      "hay%20muy%2C%20muy%20poca%20luz.",
+                      "hay%20mucha%20oscuridad.",
+                      "qu%C3%A9%20poca%20claridad%20hay%20aqu%C3%AD%20dentro.",
+                      "no%20hay%20luz.",
+                      "no%20hay%20apenas%20luz.",
+                      "no%20hay%20buena%20luz%20en%20m%C3%AD.",
+                      "no%20hay%20buena%20luz%20aqu%C3%AD.",
+                      "no%20hay%20una%20luz%20id%C3%B3nea.",
+                      "no%20entra%20ni%20un%20rayo%20de%20luz%20aqu%C3%AD.",
+                      "la%20luz%20que%20entra%20en%20m%C3%AD%20es%20escasa.",
+                      "la%20luz%20que%20hay%20es%20apenas%20perceptible.",
+                      "la%20luz%20que%20hay%20es%20imperceptible.",
+                      "la%20oscuridad%20me%20inunda%20hoy.",
+                      "la%20oscuridad%20me%20cubre.",
+                      "la%20oscuridad%20es%20abundante.",
+                      "poca%20es%20la%20luz%20que%20hay%20hoy%20en%20m%C3%AD.",
+                      "poca%20luz%20hay%20entre%20mis%20paredes.",
+                      "menuda%20penumbra%20hay%20aqu%C3%AD.",
+                      "menuda%20penumbra%20tengo%20entre%20mis%20paredes.",
+                      "qu%C3%A9%20poca%20luz%20tengo%2C%20no%20ver%C3%ADais%20tres%20en%20un%20burro."
+                      };
+String frases3[]= {"%C2%A1Esto%20de%20ser%20una%20habitaci%C3%B3n%20tuitera%20me%20encanta%21",
+                    "Ahora%20los%20espacios%20tambi%C3%A9n%20tuiteamos%2C%20lo%20que%20tiene%20el%20Internet%20de%20las%20Cosas%2C%20t%C3%BA.",
+                    "Llevo%20siendo%20la%20habitaci%C3%B3n%20de%20Miguel%20desde%20hace%2021%20a%C3%B1os%2C%20y%20por%20fin%20en%202020%20tengo%20Twitter%20%3AD",
+                    "Esto%20de%20twittear%20me%20encanta%20%3AD",
+                    "No%20es%20por%20vacilar%2C%20pero%20que%20una%20habitaci%C3%B3n%20tenga%20Twitter%20es%20algo%20que%20no%20se%20ve%20mucho%2C%20jajaja.",
+                    "Con%20esto%20de%20la%20cuarentena%20Miguel%20est%C3%A1%20por%20aqu%C3%AD%20mucho%20rato.%20%C2%A1Qu%C3%A9%20bien%21",
+                    "Si%20os%20soy%20sincera%20tengo%20bastante%20polvo%20entre%20los%20muebles.%20%C3%89ste%20Miguel%E2%80%A6",
+                    "A%20ver%20si%20a%20Miguel%20le%20da%20por%20barrer%20un%20poco%20de%20vez%20en%20cuando%E2%80%A6",
+                    "Hoy%20Miguel%20me%20ha%20pasado%20el%20limpiamuebles%2C%20ya%20era%20hora...",
+                    "Desde%20lo%20del%20coronavirus%20Miguel%20pasa%20mucho%20tiempo%20aqu%C3%AD.",
+                    "Miguel%20est%C3%A1%20mucho%20tiempo%20aqu%C3%AD%20%C3%BAltimamente%2C%20me%20gusta%20ser%20habitada.",
+                    "Miguel%20pasa%20%C3%BAltimamente%20mucho%20tiempo%20entre%20mis%20paredes.%20Se%20tira%20todo%20el%20d%C3%ADa%20con%20el%20ordenador.",
+                    "Soy%20la%20habitaci%C3%B3n%20de%20Miguel.%20%C2%A1Est%C3%A1%20muy%20orgulloso%20de%20que%20ande%20twitteando%20por%20aqu%C3%AD%21",
+                    "Soy%20la%20habitaci%C3%B3n%20de%20Miguel.%20Soy%20de%20las%20primeras%20habitaciones%20que%20twittean.",
+                    "Seguro%20que%20soy%20de%20las%20primeras%20habitaciones%20que%20twittean.",
+                    "Soy%20un%20espacio%20que%20twittea%2C%20%C2%BFy%20t%C3%BA%3F",
+                    "A%20veces%20me%20pregunto%20qu%C3%A9%20pensar%C3%A1%20Miguel%20de%20m%C3%AD.%20Seguro%20que%20le%20mola%20que%20tuitee.",
+                    "Estoy%20twitteando%20mucho%20%C3%BAltimamente%2C%20%C2%A1soy%20una%20habitaci%C3%B3n%20conectada%21%20",
+                    "Soy%20un%20cuarto%20propio%20conectado.",
+                    "Hoy%20Miguel%20ha%20estado%20mucho%20rato%20entre%20mis%20paredes.",
+                    "Me%20encantan%20mis%20cuatro%20paredes%2C%20mis%20muebles%2C%20mi%20armario%2C%20mi%20cama.%20Soy%20lo%20m%C3%A1s.",
+                    "Aqu%C3%AD%20en%20Twitter%20somos%20pocas%20las%20habitaciones%20tuiteras%2C%20%C2%BFno%3F",
+                    "Si%20conoc%C3%A9is%20a%20otra%20habitaci%C3%B3n%20o%20espacio%20que%20twitte%C3%A9%20decidme%21",
+                    "Dentro%20de%20poco%20subir%C3%A9%20una%20foto%2C%20%C2%A1espero%20que%20os%20guste%21",
+                    "Los%20espacios%20tambi%C3%A9n%20tuiteamos%2C%20%C2%A1qu%C3%A9%20os%20creeis%21",
+                    "Soy%20un%20espacio%20habitado%2C%20y%20tengo%20Twitter%21",
+                    "Soy%20una%20habitaci%C3%B3n%20y%20twitteo%2C%20fl%C3%ADpalo.",
+                    "Espero%20que%20todo%20os%20vaya%20genial.",
+                    "Espero%20que%20todo%20os%20vaya%20estupendamente.",
+                    "%C2%BFQu%C3%A9%20si%20soy%20un%20bot%3F%20No%20s%C3%A9%20de%20qu%C3%A9%20me%20habl%C3%A1is%E2%80%A6",
+                    "Cada%20d%C3%ADa%20Miguel%20abre%20la%20ventana%20y%20me%20ventila%2C%20me%20sienta%20genial.",
+                    "%C2%BFCre%C3%A9is%20que%20en%20Twitter%20hay%20lugar%20para%20espacios%20como%20yo%3F",
+                    "Me%20gustar%C3%ADa%20poder%20hablar%20con%20otros%20espacios%20en%20Twitter%20%C2%BFConoc%C3%A9is%20algun%40%20con%20el%20que%20pueda%20hablar%3F",
+                    "%C2%A1Me%20encantan%20las%20redes%20sociales%21%C2%A1Hay%20lugar%20incluso%20para%20espacios%20como%20yo%21",
+                    "%C2%A1Nos%20vemos%20ma%C3%B1ana%21",
+                    "Me%20gustar%C3%ADa%20conocer%20otras%20habitaciones%20y%20espacios%2C%20seguro%20que%20son%20muy%20interesantes.",
+                    "Estar%20conectado%20es%20fundamental%20en%20los%20tiempos%20que%20corren%E2%80%A6%20O%20eso%20dicen.",
+                    "Cuando%20toca%20limpieza%20en%20casa%20me%20encanta.%20El%20limpiamuebles%20me%20deja%20como%20nueva.",
+                    "Si%20no%20me%20sigues%2C%20deber%C3%ADas%20hacerlo.%20Seguirse%20es%20como%20ser%20amigos%2C%20no%3F",
+                    "%C2%A1Que%20alguien%20pase%20el%20aspirador%20por%20aqu%C3%AD%21%20",
+                    "Existir%20en%20las%20redes%20sociales%20me%20ponen%20muy%20contenta%20%3AD",
+                    "Hoy%20Miguel%20apenas%20ha%20pasado%20tiempo%20en%20m%C3%AD.%20Ser%C3%A1%20que%20hay%20d%C3%ADas%20que%20necesita%20estar%20en%20otros%20espacios%2C%20digo%20yo.",
+                    "Cada%20d%C3%ADa%20hay%20m%C3%A1s%20libros%20en%20mis%20estanter%C3%ADas.%20Un%20d%C3%ADa%20de%20estos%20van%20a%20ceder%20por%20el%20peso.",
+                    "Creo%20que%20no%20hace%20falta%20que%20lo%20diga%2C%20pero%20seguidme%20y%20dad%20RT%20a%20mis%20tweets%21",
+                    "Gracias%20al%20IoT%20puedo%20twittear.%20%C2%BFQu%C3%A9%20ser%C3%A1%20lo%20siguiente%3F%C2%BFUna%20batidora%20con%20Facebook%3F",
+                    "El%20IoT%20es%20un%20gran%20avance%2C%20%C2%BFno%3F%20Gracias%20a%20esto%20puedo%20twittear%20sin%20problemas.",
+                    "%C2%BFVosotr%40s%20teneis%20espacios%20que%20quieran%20twittear%3F",
+                    "Seg%C3%BAn%20la%20RAE%2C%20como%20habitaci%C3%B3n%20soy%20un%20%E2%80%9Clugar%20destinado%20a%20la%20vivienda%E2%80%9D%2C%20pero%20la%20RAE%20no%20contempla%20que%20yo%20estoy%20conectada%20%3A%29",
+                    "Creo%20que%20en%20colectivodisok%40gmail.com%20son%20expertos%20en%20dar%20vida%20y%20voz%20a%20habitaciones%20como%20yo%2C%20si%20os%20interesa.",
+                    "Esto%20de%20que%20un%20espacio%20pueda%20twittear%20es%20flipante%2C%20%C2%BFno%3F%20%C2%BFQu%C3%A9%20opinas%20t%C3%BA%3F",
+                    "%C2%BFQu%C3%A9%20supone%20mi%20presencia%20en%20una%20red%20social%3F%20",
+                    "%C2%BFQu%C3%A9%20opinas%20acerca%20de%20que%20yo%20%28un%20espacio%29%20est%C3%A9%20en%20una%20red%20social%3F%20",
+                    "Desde%20que%20estoy%20en%20Twitter%20existo%20en%20dos%20espacios%3A%20el%20f%C3%ADsico%20y%20el%20virtuuuuuaaal.%20Cool.",
+                    "Si%20soy%20sincera%20creo%20que%20mi%20perfil%20de%20Twitter%20es%20una%20consecuencia%20del%20aburrimiento%20de%20Miguel%2C%20jajaja.",
+                    "Os%20preguntar%C3%A9is%20si%20hay%20m%C3%A1s%20como%20yo..%20%C2%A1s%C3%B3lo%20ten%C3%A9is%20que%20buscar%21",
+                    "Soy%20un%20proyecto%20de%20Colectivo%20Dis-OK%21%2C%20pero%20nadie%20puede%20saberlo%2C%20shhhhh%E2%80%A6",
+                    "Hoy%20me%20he%20cansado%20de%20mis%204%20paredes...%C2%BFy%20si%20me%20construyen%20una%20quinta%3F",
+                    "Ser%20habitada%20es%20extra%C3%B1o%2C%20te%20desordenan%20para%20luego%20ordenarte%2C%20y%20te%20vuelven%20a%20desordenar.%20No%20entiendo%20a%20Miguel.",
+                    "Qu%C3%A9%20raro%20es%20ser%20habitada.%20Pienso%20en%20que%20Miguel%20habita%20en%20mi%20y%20me%20extra%C3%B1a..."
+                     };
+
+void setup() {
+ Serial.begin(115200);
+ randomSeed(analogRead(0));
+ delay(10);
+  if (!bmp.begin()) {
+    Serial.println("No se encuentra el sensor BMP180, comprueba la conexión!");
+  }
+  if (! uv.begin()) {
+    Serial.println("Didn't find Si1145");
+  }
+ // Conectamos a la red WiFi
+ WiFiMulti.addAP(WIFISID, WIFIPASS);
+
+ Serial.println();
+ Serial.println();
+ Serial.print("Eperando a conectar a la WiFi... ");
+
+ while (WiFiMulti.run() != WL_CONNECTED) {
+ Serial.print(".");
+ delay(500);
+ }
+
+ Serial.println("");
+ Serial.println("WiFi conectada");
+ Serial.println("Direccion IP: ");
+ Serial.println(WiFi.localIP());
+
+ delay(500);
+
+}
+
+
+unsigned long t=0;
+int cuenta = 24;
+
+void loop() {
+  
+  if (millis()-t>3600000)
+  {
+    cuenta++;
+    t=millis();
+    // Obtenemos los valores
+    luzVisible = analogRead(sensorPin);
+    //luzVisible=uv.readVisible();
+    Serial.println(luzVisible);
+    temp = bmp.readTemperature();
+    String opcion2;
+    if (luzVisible<500){
+      opcion2=frases2_3[random(39)];
+    }
+    else if (luzVisible<925){
+      opcion2=frases2_2[random(31)];
+    }
+    else {
+       opcion2=frases2_1[random(37)];
+    }
+    
+    String valor1= frases1[random(59)]+"%20"+String(temp)+"%20grados%20y%20";
+    String valor2= opcion2+"%20";
+    String valor3= frases3[random(59)];
+    Serial.println(valor1);
+    Serial.println(valor2);
+    Serial.println(valor3);
+    if (cuenta>=24){
+        enviar_tweet(valor1, valor2, valor3);
+        cuenta=0;
+    }
+    
+  }
+//int horas= random(9,10);
+//  int horas= 1;
+//  Serial.print("Próximo tweet en ");
+//  Serial.print(horas);
+//  Serial.println(" horas");
+  //delay(horas*3600*1000);
+//  delay (horas*120000);
+}
+ 
+void enviar_tweet(String valor1, String valor2, String valor3)
+{
+  if (client.connected())
+  {
+    client.stop();
+  }
+  client.flush();
+ 
+  // Hacemos la petición mediante SSL
+  if (client.connect(HOSTIFTTT, 80)) {
+    // Construimos la petición HTTP
+    String url = "/trigger/"+EVENTO+"/with/key/"+IFTTTKEY;
+    Serial.print("requesting URL: ");
+    Serial.println(url);
+    client.print("GET " + url +"?value1="+valor1+"&value2="+valor2+"&value3="+valor3+ " HTTP/1.1\r\n" +
+               "Host: " + HOSTIFTTT + "\r\n" +
+               "User-Agent: BuildFailureDetectorESP32\r\n" +
+               "Connection: close\r\n\r\n");
+   
+    Serial.println("request sent");
+    while (client.connected()) {
+      String line = client.readStringUntil('\n');
+      if (line == "\r") {
+        Serial.println("headers received");
+        break;
+      }
+    }
+    String line = client.readStringUntil('\n');
+    Serial.println("reply was:");
+    Serial.println("==========");
+    Serial.println(line);
+    Serial.println("==========");
+    Serial.println("closing connection");
+    Serial.println("enviado");
+  }
+  client.flush();
+  client.stop();
+}
